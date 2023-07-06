@@ -4,7 +4,10 @@ from .models import User, Product, Category, Order, OrderItem, Address, Payment
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'name', 'email', 'password', 'address', 'phone_number']
+        fields = ['id', 'username', 'name', 'email', 'password', 'phone_number', 'role', 'addresses']
+        extra_kwargs = {
+            'password': {'write_only': True},
+        }
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,9 +32,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
-        fields = ['id', 'user', 'street', 'city', 'state', 'zip_code']
+        fields = ['id', 'street', 'city', 'state', 'zip_code']
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ['id', 'order', 'payment_method', 'amount', 'transaction_status']
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
+
+class LogoutSerializer(serializers.Serializer):
+    pass
+
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField()
+    confirm_password = serializers.CharField()
+
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Password and Confirm Password must match.")
+        return data
+
