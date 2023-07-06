@@ -1,9 +1,21 @@
 from rest_framework.views import APIView
 from rest_framework import viewsets
-import uuid
 from rest_framework.response import Response
 from rest_framework import status
+from django.contrib.auth import authenticate, login, logout
 from .models import User, Product, Category, Order, OrderItem, Address, Payment
+from rest_framework import viewsets
+from .models import Address
+from django.core.mail import send_mail
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.sites.shortcuts import get_current_site
+from django.template.loader import render_to_string
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+#from django.utils.encoding import force_bytes, force_text
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth.models import User
+from django.views import View
+from django.shortcuts import render, redirect
 from .serializers import (
     UserSerializer,
     ProductSerializer,
@@ -12,7 +24,56 @@ from .serializers import (
     OrderItemSerializer,
     AddressSerializer,
     PaymentSerializer,
+    PasswordResetSerializer,
 )
+from rest_framework_simplejwt.views import PasswordResetView
+
+from api.views import PasswordResetView
+
+class LoginView(APIView):
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        user = authenticate(username=username, password=password)
+
+        if user is not None:
+            login(request, user)
+            return Response(status=status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+class LogoutView(APIView):
+    def post(self, request):
+        logout(request)
+        return Response(status=status.HTTP_200_OK)
+
+class PasswordResetView(View):
+    def post(self, request):
+        serializer = PasswordResetSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            
+            # Generate reset token
+            user = User.objects.get(email=email)
+            token = default_token_generator.make_token(user)
+
+            # Build password reset URL
+            current_site = get_current_site(request)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            reset_url = f"http://{current_site.domain}/reset/{uid}/{token}/"
+
+            # Send password reset email
+            subject = "Password Reset"
+            message = render_to_string('password_reset_email.html', {
+                'reset_url': reset_url,
+                'user': user,
+            })
+            send_mail(subject, message, 'noreply@example.com', [email])
+
+            return Response(status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 # User API
 class UserView(APIView):
@@ -79,6 +140,7 @@ class CategoryView(APIView):
     def get(self, request, category_id):
         category = Category.objects.get(id=category_id)
         serializer = CategorySerializer(category)
+
         return Response(serializer.data)
 
     def post(self, request):
@@ -181,7 +243,7 @@ class AddressView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = AddressSerializer(data=request.data)
+        serializer = AddressSerializer(data)
         if serializer.is_valid():
             address = serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -238,8 +300,8 @@ class PaymentListView(APIView):
         payments = Payment.objects.all()
         serializer = PaymentSerializer(payments, many=True)
         return Response(serializer.data)
-# View Sets
 
+# View Sets
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
