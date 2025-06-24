@@ -7,11 +7,11 @@ djangorestframework==3.15.2
 idna==3.7
 Markdown==3.4.3
 pytz==2023.3
-requests==2.32.2
+requests==2.32.4
 djangorestframework-simplejwt==5.4.0
 sqlparse==0.5.0
 treblle==0.14
 typing_extensions==4.7.0
-urllib3==2.2.2
+urllib3==2.5.0
 uuid==1.30
 
